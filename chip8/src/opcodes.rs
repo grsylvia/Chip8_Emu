@@ -11,9 +11,8 @@ impl Chip8 {
     // 0x1NNN
     // Jump means set pc to the address given by hex number 0xnnn
     pub(super) fn op_jump(&mut self, instr: Instruction) {
-        println!("JUMP to {:#05X}", instr.nnn);
         self.pc = instr.nnn;
-        println!("Next instruction address in memory is now {:#05X}", self.pc);
+        self.debug_log(&format!("[1NNN] JUMP -> pc = {:#05X}", self.pc));
     }
 
     // 0x2NNN
@@ -22,72 +21,99 @@ impl Chip8 {
     // Skips next instruction if register value equals nn value
     // Compares a variable to a constant and helps implement if / else statements
     pub(super) fn op_skip_eq_nn(&mut self, instr: Instruction) {
-        if self.v[instr.x] == instr.nn {
+        let skip = self.v[instr.x] == instr.nn;
+        if skip {
             self.pc += 2;
         }
+        self.debug_log(&format!(
+            "[3XNN] SKIP if V{:X}({:#04X}) == {:#04X}? {}",
+            instr.x, self.v[instr.x], instr.nn, skip
+        ));
     }
 
     // 0x4XNN
     // Skips next instruction if register value does not equals nn value
     // Compares a variable to a constant and helps implement if / else statements
     pub(super) fn op_skip_ne_nn(&mut self, instr: Instruction) {
-        if self.v[instr.x] != instr.nn {
+        let skip = self.v[instr.x] != instr.nn;
+        if skip {
             self.pc += 2;
         }
+        self.debug_log(&format!(
+            "[4XNN] SKIP if V{:X}({:#04X}) != {:#04X}? {}",
+            instr.x, self.v[instr.x], instr.nn, skip
+        ));
     }
 
     // 0x5XYN
     // Skips next instruction if x register equals y register in opcode
     // Compares two variables and helps implement if / else statements
     pub(super) fn op_skip_eq_reg(&mut self, instr: Instruction) {
-        if self.v[instr.x] == self.v[instr.y] {
+        let skip = self.v[instr.x] == self.v[instr.y];
+        if skip {
             self.pc += 2;
         }
+        self.debug_log(&format!(
+            "[5XY0] SKIP if V{:X}({:#04X}) == V{:X}({:#04X})? {}",
+            instr.x, self.v[instr.x], instr.y, self.v[instr.y], skip
+        ));
     }
 
     // 0x6XNN
     // Sets register in opcode to nn value provided
     pub(super) fn op_set(&mut self, instr: Instruction) {
         self.v[instr.x] = instr.nn;
-        println!("OP_SET: V{:X} = {:#04X}", instr.x, self.v[instr.x]);
+        self.debug_log(&format!("[6XNN] SET V{:X} = {:#04X}", instr.x, self.v[instr.x]));
     }
 
     // 0x7XNN
     // Adds 8-bit value 0xNN to the register VA (register 10)
     pub(super) fn op_add(&mut self, instr: Instruction) {
-        println!("OP_ADD: V{:X} += {:#04X}", instr.x, instr.nn);
         // Overflow wrapping is a attribute of Chip8, need to override Rust errors to allow
         self.v[instr.x] = self.v[instr.x].wrapping_add(instr.nn);
-        println!("OP_ADD: V{:X} is now {:#04X}", instr.x, self.v[instr.x]);
+        self.debug_log(&format!(
+            "[7XNN] ADD V{:X} += {:#04X} -> {:#04X}",
+            instr.x, instr.nn, self.v[instr.x]
+        ));
     }
 
     // 0x8XY0
     pub(super) fn op_set_reg(&mut self, instr: Instruction) {
-        println!("OP_SET_REG: V{:X} is {:#04X}", instr.x, self.v[instr.x]);
-        println!("OP_SET_REG: V{:X} is {:#04X}", instr.y, self.v[instr.y]);
         self.v[instr.x] = self.v[instr.y];
-        println!("OP_SET_REG: V{:X} is now {:#04X}", instr.x, self.v[instr.x]);
+        self.debug_log(&format!(
+            "[8XY0] SET V{:X} = V{:X} ({:#04X})",
+            instr.x, instr.y, self.v[instr.x]
+        ));
     }
 
     // 0x8XY1
     // Performs bitwise OR operation, stores result into Vx
     pub(super) fn op_or(&mut self, instr: Instruction) {
         self.v[instr.x] = self.v[instr.x] | self.v[instr.y];
-        println!("OP_OR: V{:X} is {:#04X}", instr.x, self.v[instr.x]);
+        self.debug_log(&format!(
+            "[8XY1] OR  V{:X} |= V{:X} -> {:#04X}",
+            instr.x, instr.y, self.v[instr.x]
+        ));
     }
 
     // 0x8XY2
     // Performs bitwise AND operation, stores result into Vx
     pub(super) fn op_and(&mut self, instr: Instruction) {
         self.v[instr.x] = self.v[instr.x] & self.v[instr.y];
-        println!("OP_AND: V{:X} is {:#04X}", instr.x, self.v[instr.x]);
+        self.debug_log(&format!(
+            "[8XY2] AND V{:X} &= V{:X} -> {:#04X}",
+            instr.x, instr.y, self.v[instr.x]
+        ));
     }
 
     // 0x8XY3
     // Performs bitwise XOR operation, stores result into Vx
     pub(super) fn op_xor(&mut self, instr: Instruction) {
         self.v[instr.x] = self.v[instr.x] ^ self.v[instr.y];
-        println!("OP_AND: V{:X} is {:#04X}", instr.x, self.v[instr.x]);
+        self.debug_log(&format!(
+            "[8XY3] XOR V{:X} ^= V{:X} -> {:#04X}",
+            instr.x, instr.y, self.v[instr.x]
+        ));
     }
 
     // 0x8XY4
@@ -104,16 +130,21 @@ impl Chip8 {
     // Skips next instruction if x register equals y register in opcode
     // Compares two variables and helps implement if / else statements
     pub(super) fn op_skip_ne_reg(&mut self, instr: Instruction) {
-        if self.v[instr.x] != self.v[instr.y] {
+        let skip = self.v[instr.x] != self.v[instr.y];
+        if skip {
             self.pc += 2;
         }
+        self.debug_log(&format!(
+            "[9XY0] SKIP if V{:X}({:#04X}) != V{:X}({:#04X})? {}",
+            instr.x, self.v[instr.x], instr.y, self.v[instr.y], skip
+        ));
     }
 
     // 0xANNN
     // Sets index register in opcode to nnn value provided
     pub(super) fn op_set_index(&mut self, instr: Instruction) {
         self.i = instr.nnn;
-        println!("OP_SET_INDEX: Index = {:#05X}", self.i);
+        self.debug_log(&format!("[ANNN] SET I = {:#05X}", self.i));
     }
 
     // 0xBNNN

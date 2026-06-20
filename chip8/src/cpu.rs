@@ -30,7 +30,9 @@ pub struct Chip8 {
     // 64 * 32 screen, each pixel on or off
     display: [bool; 64 * 32],
     // 16 keys, pressed or not
-    keypad: [bool; 16]
+    keypad: [bool; 16],
+    // when true, opcode debug messages are printed to the terminal
+    debug: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -102,6 +104,8 @@ impl Chip8 {
             // clear screen
             display: [false; 64 * 32],
             keypad: [false; 16],
+            // debug messages on by default
+            debug: true,
         };
 
         // after initializing, load font set into memory starting at 0x50
@@ -113,6 +117,18 @@ impl Chip8 {
 
         // let chip8 be the return value of new()
         chip8
+    }
+
+    // turn opcode debug messages on or off
+    pub fn set_debug(&mut self, enabled: bool) {
+        self.debug = enabled;
+    }
+
+    // print a debug message only when debug mode is enabled
+    fn debug_log(&self, message: &str) {
+        if self.debug {
+            println!("{message}");
+        }
     }
 
     // Use &mut self to "borrow" (take ownership) of the machine and change it
