@@ -1,14 +1,35 @@
+// REMINDERS:
+// 1 byte = 2 hex digit (ex. 0xAF), 8 bits
+// 1 nibble = 1 hex digit, 4 bits
+// Opcodes are 2 bytes, 16 bits (ex. 0x44BF)
+// Register VALUES are 1 byte, 8 bits, but registers are addressed with 4 bits, 1 hex digit
+
+
 fn main() {
     // calls function associated with type Chip8, so calls a constructor
-    let chip8 = Chip8::new();
+    let mut chip8 = Chip8::new();
 
     // Universal CPU loop:
     // 1) Fetch, read 2 byte opcode that pc points at, and move pc to next instruction
     // 2) Decode, pull opcode apart and determine function & registers it invokes
     // 3) Execute instruction
 
-    let opcode_ex = 0x7A15;
+    // place 2 instructions into memory
+    // load first instruction 0x7A15, using 2 bytes and 2 memory addresses
+    chip8.memory[0x200] = 0x7A;
+    chip8.memory[0x201] = 0x15;
+    // load second instruction 0x1234
+    chip8.memory[0x202] = 0x12;
+    chip8.memory[0x203] = 0x34;
 
+    // run fetch-decode cycle twice
+    for _ in 0..2 {
+        // starting at pc = 0x200, pull instruction in addresses 0x200 and 0x201
+        // then, increment pc to start again at 0x202 and pull the next instruction
+        let opcode = chip8.fetch();
+        println!("{:#06X}", opcode);
+        chip8.decode(opcode);
+    }
 }
 
 struct Chip8 {
@@ -56,8 +77,8 @@ impl Chip8 {
     fn new() -> Self { // function that returns Chip8
         let mut chip8 = Chip8 { // mutable, rust vars are read-only by default
             // clear all memory and registers
-            memory: [0; 4096], 
-            v: [0; 16], 
+            memory: [0; 4096],
+            v: [0; 16],
             i: 0,
             // start program counter at beginning of program space
             pc: 0x200,
@@ -94,14 +115,10 @@ impl Chip8 {
         let high_byte = self.memory[self.pc as usize] as u16;
         let low_byte = self.memory[(self.pc + 1) as usize] as u16;
 
-        println!("{:#04X}", high_byte);
-        println!("{:#04X}", low_byte);
-
         // Combine high and low bytes into a single word (u16, two bytes long)
         // use mut to change variable later
         let mut opcode = high_byte << 8;
-        opcode = high_byte | low_byte;
-        println!("{:#06X}", opcode);
+        opcode = opcode | low_byte;
 
         // move pc up 2 memory address for point at the memory address of the next instruction
         self.pc += 2;
@@ -109,5 +126,56 @@ impl Chip8 {
         // Use no semicolons to have opcode return
         opcode
     }
-    
+
+    fn decode(&mut self, opcode: u16) {
+        // Decode, pull opcode apart and determine function & registers it invokes
+
+        // Each opcode packs meaning in 4 hex digits (nibbles), which each hex digit is a byte
+        // Ex. hex nibble 7 = 0111 in binary
+        // Meaning library for opcode 0xWXYZ / 0xWXNN / 0xWNNN:
+        // W, top nibble & instruction family byte
+        // X, first register address
+        // Y, second register address
+        // Z or N 4-bit or single byte value
+        // NN = YZ, an 8-bit value
+        // NNN = XYZ, 12-bit address
+        
+        // EXAMPLE
+        // mask with & to pull out nibble, and then use >> to slid down to ones place
+        // acts as a boolean operation that pulls out digit aligned with F
+        // let mut example = (0x7A15 & 0xF000);
+        //println!("{:#04X}", example);
+
+        // shift down 12 bits to get to 4 bits in hex (3 digits, 4 bits each, so 3 * 4 = 12)
+        // example = example >> 12;
+        // println!("{:#01X}", example);
+
+        // pull apart opcode into nibbles
+
+        let opcode_group = (opcode & 0xF000) >> 12; // instruction family
+        // NOTE: register VALUES are 1 byte, 8 bits, but registers are addressed with 4 bits, 1 hex digit
+        // Cast registers address x, y as usize to address register
+        let x = ((opcode & 0x0F00) >> 8) as usize; // usually first register address
+        let y = ((opcode & 0x00F0) >> 4) as usize; // usually second register address
+        let n = (opcode & 0x000F) as u8; // value that goes into 8-bit register, so u8
+        let nn = (opcode & 0x00FF) as u8; // value that goes into 8-bit register, so u8
+        let nnn = opcode & 0x0FFF; // 12-bit address
+
+        // Match each opcode to a specific instruction
+
+        match opcode_group {
+            // Add means add 0xNN to the register VA (register 10)
+            0x7 => {
+                println!("ADD: V{:X} += {:#04X}", x, nn)
+
+            }
+            // Jump means set pc to the address given by hex number 0xnnn
+            0x1 => {
+                println!("JUMP to {:#05X}", nnn)
+            }
+            _ => {
+                println!("Unknown opcode: {:#06X}", opcode);
+            }
+        }
+    }  
 }
