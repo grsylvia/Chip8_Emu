@@ -30,4 +30,6 @@ fn main() {
     for _ in 0..2 {
         chip8.cycle();
     }
+
+    chip8.dump_registers()
 }

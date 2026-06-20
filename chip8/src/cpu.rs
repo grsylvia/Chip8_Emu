@@ -81,7 +81,7 @@ impl Chip8 {
             v: [0; 16],
             i: 0,
             // start program counter at beginning of program space
-            pc: 0x200,
+            pc: 0x200, 
             stack: [0; 16],
             sp: 0,
             delay_timer: 0,
@@ -176,5 +176,21 @@ impl Chip8 {
         let instr = self.decode(opcode);
         // Executes instruction by matching opcode to function and changing memory
         self.execute(instr);
+    }
+
+    // Prints all registers to terminal, not using mut as no changes are made to registers
+    pub fn dump_registers(&self) {
+        println!("!====REGISTERS====!");
+
+        // Print V0 to VF line by line
+        // Creates an array of tuples with (register, value)
+        for (register, value) in self.v.iter().enumerate() {
+            // Register values are 8-bit (u8), so use 2 hex digits
+            println!("V{:X}:{:#03X}", register, value);
+        }
+
+        println!("!====PROGRAM COUNTER & STACK POINTER");
+        println!("Program Counter Address: {:#05X}", self.pc);
+        println!("Stack Pointer Address: {:#03X}", self.sp);
     }
 }
