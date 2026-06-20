@@ -193,4 +193,3 @@ impl Chip8 {
         println!("Program Counter Address: {:#05X}", self.pc);
         println!("Stack Pointer Address: {:#03X}", self.sp);
     }
-}
