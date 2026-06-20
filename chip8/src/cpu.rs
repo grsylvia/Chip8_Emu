@@ -5,6 +5,9 @@
 // Register VALUES are 1 byte, 8 bits, but registers are addressed with 4 bits, 1 hex digit
 // If function or variable called from main, set as public (pub) 
 
+#[path = "opcodes.rs"]
+mod opcodes;
+
 // define data stored within struct Chip8
 
 pub struct Chip8 {
@@ -30,6 +33,7 @@ pub struct Chip8 {
     keypad: [bool; 16]
 }
 
+#[derive(Clone, Copy)]
 pub struct Instruction {
     // Each opcode packs instruction in 4 hex digits (nibbles), which each hex digit is 4 bits
     // Ex. hex nibble 7 = 0111 in binary
@@ -151,80 +155,6 @@ impl Chip8 {
         }
     }  
 
-    // pulls nibbles from decode via returned Instruction struct, and executes instructions
-    // takes in Instruction struct
-    pub fn execute(&mut self, instr: Instruction) {
-        match instr.instruction_family {
-            // Adds 8-bit value 0xNN to the register VA (register 10)
-            0x7 => {
-                println!("ADD: V{:X} += {:#04X}", instr.x, instr.nn);
-                // Overflow wrapping is a attribute of Chip8, need to override Rust errors to allow
-                self.v[instr.x] = self.v[instr.x].wrapping_add(instr.nn);
-                println!("ADD: V{:X} is now {:#04X}", instr.x, self.v[instr.x])
-            }
-
-            // Jump means set pc to the address given by hex number 0xnnn
-            0x1 => {
-                println!("JUMP to {:#05X}", instr.nnn);
-                self.pc = instr.nnn;
-                println!("Next instruction address in memory is now {:#05X}", self.pc);
-            }
-
-            // Sets register in opcode to nn value provided
-            0x6 => {
-                self.v[instr.x] = instr.nn;
-                println!("SET: V{:X} = {:#04X}", instr.x, self.v[instr.x]);
-            }
-
-            // Sets index register in opcode to nnn value provided
-            0xA => {
-                self.i = instr.nnn;
-                println!("SET INDEX = {:#05X}", self.i);
-            }
-            
-            // 0x3XNN
-            // Skips next instruction if register value equals nn value
-            // Compares a variable to a constant and helps implement if / else statements
-            0x3 => {
-                if self.v[instr.x] == instr.nn.into() {
-                    self.pc += 2;
-                }
-            }
-
-            // 0x4XNN
-            // Skips next instruction if register value does not equals nn value
-            // Compares a variable to a constant and helps implement if / else statements
-            0x4 => {
-                if self.v[instr.x] != instr.nn {
-                    self.pc += 2;
-                }
-            }
-
-            // 0x5XYN
-            // Skips next instruction if x register equals y register in opcode
-            // Compares two variables and helps implement if / else statements
-            0x5 => {
-                if self.v[instr.x] == self.v[instr.y] {
-                    self.pc += 2;
-                }
-            }
-
-            // 0x9XY0
-            // Skips next instruction if x register equals y register in opcode
-            // Compares two variables and helps implement if / else statements
-            0x9 => {
-                if self.v[instr.x] != self.v[instr.y] {
-                    self.pc += 2;
-                }
-            }
-
-            // If opcode not recognized, flag as an error
-            _ => {
-                println!("Unknown opcode: {:#06X}", instr.opcode);
-            }
-        }
-    }
-
     // Cycles through fetch, decode, and execute
     pub fn cycle(&mut self) {
         // Pulls instruction from memory using the address set in program counter (pc)
@@ -247,7 +177,7 @@ impl Chip8 {
             println!("V{:X}:{:#03X}", register, value);
         }
 
-        println!("!====PROGRAM COUNTER & STACK POINTER");
+        println!("!====PROGRAM COUNTER & STACK POINTER====!");
         println!("Program Counter Address: {:#05X}", self.pc);
         println!("Stack Pointer Address: {:#03X}", self.sp);
     }
