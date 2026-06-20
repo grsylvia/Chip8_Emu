@@ -159,6 +159,12 @@ impl Chip8 {
                 self.pc = instr.nnn;
                 println!("Next instruction address in memory is now {:#05X}", self.pc);
             }
+
+            0x6 => {
+                self.v[instr.x] = instr.nn;
+                println!("SET: V{:X} = {:#04X}", instr.x, self.v[instr.x]);
+
+            }
             
             // If opcode not recognized, flag as an error
             _ => {
