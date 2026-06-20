@@ -2,28 +2,20 @@ fn main() {
     // calls function associated with type Chip8, so calls a constructor
     let chip8 = Chip8::new();
 
-    // print out the bytes associated with the digit 0 
-    println!("Font bytes for '0' starting a 0x50 (beginning of fonts in mem):");
-    for offset in 0..5 {
-        // :, introduces format spec
-        // #, add the 0x prefix
-        // 04, pad to 4 characters wide
-        // X, set format as hex
-        // pulls each byte in font memory range for digit 0
-        // NOTE: memory is addressed in bytes, and returns / stores bytes
-        println!("memory[{:#04X}] = {:#04X}", 0x50 + offset, chip8.memory[0x50 + offset])
+    // Universal CPU loop:
+    // 1) Fetch, read 2 byte opcode that pc points at, and move pc to next instruction
+    // 2) Decode, pull opcode apart and determine function & registers it invokes
+    // 3) Execute instruction
 
-    
+    let opcode_ex = 0x7A15;
 
-        
-    }
 }
 
 struct Chip8 {
     memory: [u8; 4096], // 4096 bytes of RAM, each cell is a byte
     v: [u8; 16], // general registers, V0-VF
     i: u16, // index register, holds addresses
-    pc: u16, // program counter, address of next instruction
+    pc: u16, // program counter, address of next instruction in memory
     stack: [u16; 16], // stack, saves return addresses
     sp: u8, // stack pointer
     delay_timer: u8,
@@ -88,4 +80,34 @@ impl Chip8 {
         // let chip8 be the return value of new()
         chip8
     }
+
+    // Use %mut self to "borrow" (take ownership) of the machine and change it
+    // In this case, we change the program counter
+    // Don't bring in a copy of the machine, borrow it with &
+    fn fetch(&mut self) -> u16 {
+
+        // Fetch, read 2 byte opcode that pc points at, and move pc to next instruction
+
+        // Memory is stored one byte at a time, but an opcode is two bytes
+        // You can ONLY index memory as an integer literal (ex. 0x50) or as a usize
+        // Store each opcode byte into a u8
+        let high_byte = self.memory[self.pc as usize] as u16;
+        let low_byte = self.memory[(self.pc + 1) as usize] as u16;
+
+        println!("{:#04X}", high_byte);
+        println!("{:#04X}", low_byte);
+
+        // Combine high and low bytes into a single word (u16, two bytes long)
+        // use mut to change variable later
+        let mut opcode = high_byte << 8;
+        opcode = high_byte | low_byte;
+        println!("{:#06X}", opcode);
+
+        // move pc up 2 memory address for point at the memory address of the next instruction
+        self.pc += 2;
+
+        // Use no semicolons to have opcode return
+        opcode
+    }
+    
 }
