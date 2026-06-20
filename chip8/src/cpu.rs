@@ -8,16 +8,26 @@
 // define data stored within struct Chip8
 
 pub struct Chip8 {
-    pub memory: [u8; 4096], // 4096 bytes of RAM, each cell is a byte
-    v: [u8; 16], // general registers, V0-VF
-    i: u16, // index register, holds addresses
-    pc: u16, // program counter, address of next instruction in memory
-    stack: [u16; 16], // stack, saves return addresses
-    sp: u8, // stack pointer
+    // 4096 bytes of RAM, each cell is a byte
+    pub memory: [u8; 4096],
+    // general registers, V0-VF
+    v: [u8; 16],
+    // index register, holds addresses to give first express for a memory range
+    // used to point to first address in memory holding spirtes, fonts
+    // points at first address where data will be saved or loaded from registers 
+    i: u16, 
+    // program counter, address of next instruction in memory
+    pc: u16,
+    // stack, saves return addresses
+    stack: [u16; 16], 
+    // stack pointer
+    sp: u8,
     delay_timer: u8,
     sound_timer: u8,
-    display: [bool; 64 * 32], // 64 * 32 screen, each pixel on or off
-    keypad: [bool; 16] // 16 keys, pressed or not
+    // 64 * 32 screen, each pixel on or off
+    display: [bool; 64 * 32],
+    // 16 keys, pressed or not
+    keypad: [bool; 16]
 }
 
 pub struct Instruction {
@@ -160,12 +170,29 @@ impl Chip8 {
                 println!("Next instruction address in memory is now {:#05X}", self.pc);
             }
 
+
+
+            // Sets register in opcode to nn value provided
             0x6 => {
                 self.v[instr.x] = instr.nn;
                 println!("SET: V{:X} = {:#04X}", instr.x, self.v[instr.x]);
+            }
 
+            // Sets index register in opcode to nnn value provided
+            0xA => {
+                self.i = instr.nn;
+                println!("SET INDEX = {:#05X}", i);
             }
             
+            // 0x3XNN
+            // Skips next instruction if register equals nn values
+            // Compares a variable to a constant and helps implement if / else statements
+            0x3 => {
+                if instr.x == instr.nn {
+                    self.pc += 2;
+                }
+            }
+
             // If opcode not recognized, flag as an error
             _ => {
                 println!("Unknown opcode: {:#06X}", instr.opcode);
