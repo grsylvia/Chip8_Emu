@@ -170,8 +170,6 @@ impl Chip8 {
                 println!("Next instruction address in memory is now {:#05X}", self.pc);
             }
 
-
-
             // Sets register in opcode to nn value provided
             0x6 => {
                 self.v[instr.x] = instr.nn;
@@ -180,15 +178,42 @@ impl Chip8 {
 
             // Sets index register in opcode to nnn value provided
             0xA => {
-                self.i = instr.nn;
-                println!("SET INDEX = {:#05X}", i);
+                self.i = instr.nnn;
+                println!("SET INDEX = {:#05X}", self.i);
             }
             
             // 0x3XNN
-            // Skips next instruction if register equals nn values
+            // Skips next instruction if register value equals nn value
             // Compares a variable to a constant and helps implement if / else statements
             0x3 => {
-                if instr.x == instr.nn {
+                if self.v[instr.x] == instr.nn.into() {
+                    self.pc += 2;
+                }
+            }
+
+            // 0x4XNN
+            // Skips next instruction if register value does not equals nn value
+            // Compares a variable to a constant and helps implement if / else statements
+            0x4 => {
+                if self.v[instr.x] != instr.nn {
+                    self.pc += 2;
+                }
+            }
+
+            // 0x5XYN
+            // Skips next instruction if x register equals y register in opcode
+            // Compares two variables and helps implement if / else statements
+            0x5 => {
+                if self.v[instr.x] == self.v[instr.y] {
+                    self.pc += 2;
+                }
+            }
+
+            // 0x9XY0
+            // Skips next instruction if x register equals y register in opcode
+            // Compares two variables and helps implement if / else statements
+            0x9 => {
+                if self.v[instr.x] != self.v[instr.y] {
                     self.pc += 2;
                 }
             }
@@ -226,3 +251,4 @@ impl Chip8 {
         println!("Program Counter Address: {:#05X}", self.pc);
         println!("Stack Pointer Address: {:#03X}", self.sp);
     }
+}
