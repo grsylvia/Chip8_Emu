@@ -28,10 +28,6 @@ fn main() {
 
     // run fetch-decode cycle twice
     for _ in 0..2 {
-        // starting at pc = 0x200, pull instruction in addresses 0x200 and 0x201
-        // then, increment pc to start again at 0x202 and pull the next instruction
-        let opcode = chip8.fetch();
-        println!("{:#06X}", opcode);
-        chip8.decode(opcode);
+        chip8.cycle();
     }
 }

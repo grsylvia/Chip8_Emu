@@ -20,6 +20,27 @@ pub struct Chip8 {
     keypad: [bool; 16] // 16 keys, pressed or not
 }
 
+pub struct Instruction {
+    // Each opcode packs instruction in 4 hex digits (nibbles), which each hex digit is 4 bits
+    // Ex. hex nibble 7 = 0111 in binary
+    // Meaning library for opcode 0xWXYZ / 0xWXNN / 0xWNNN:
+    // W, top nibble & instruction family byte
+    // X, first register address
+    // Y, second register address
+    // Z or N 4-bit or single byte value
+    // NN = YZ, an 8-bit value
+    // NNN = XYZ, 12-bit address
+    
+    opcode: u16, // keep raw opcode for error messages
+    instruction_family: u16, // top nibble, instruction family
+    // Cast registers address x, y as usize
+    x: usize, // usually first register address
+    y: usize, // usually second register address
+    n: u8, // value that goes into 8-bit register, so u8
+    nn: u8, // value that goes into 8-bit register, so u8
+    nnn: u16, // 12-bit address
+}
+
 const FONT_SET: [u8; 80] = [
     // loads in the display digits 0-F
     // decode each row into binary to see the digit literally drawn out in binary
@@ -51,7 +72,9 @@ const FONT_SET: [u8; 80] = [
 // impl gives functionality to Chip8 struct, separating data and function
 
 impl Chip8 {
-    pub fn new() -> Self { // function that returns Chip8
+
+    // function that builds and returns Chip8 virtual machine 
+    pub fn new() -> Self {
         let mut chip8 = Chip8 { // mutable, rust vars are read-only by default
             // clear all memory and registers
             memory: [0; 4096],
@@ -80,12 +103,10 @@ impl Chip8 {
     }
 
     // Use %mut self to "borrow" (take ownership) of the machine and change it
-    // In this case, we change the program counter
     // Don't bring in a copy of the machine, borrow it with &
+    // In this case, we change the program counter
+    // Fetch, read 2 byte opcode that pc points at, and move pc to next instruction
     pub fn fetch(&mut self) -> u16 {
-
-        // Fetch, read 2 byte opcode that pc points at, and move pc to next instruction
-
         // Memory is stored one byte at a time, but an opcode is two bytes
         // You can ONLY index memory as an integer literal (ex. 0x50) or as a usize
         // Store each opcode byte into a u8
@@ -104,55 +125,56 @@ impl Chip8 {
         opcode
     }
 
-    pub fn decode(&mut self, opcode: u16) {
-        // Decode, pull opcode apart and determine function & registers it invokes
+    // Decode, pull opcode apart and determine function & registers it invokes
+    // Returns struct of split apart op-code Instruction
+    pub fn decode(&self, opcode: u16) -> Instruction {
+        // pull apart opcode into nibbles and build Instruction struct to return 
 
-        // Each opcode packs meaning in 4 hex digits (nibbles), which each hex digit is a byte
-        // Ex. hex nibble 7 = 0111 in binary
-        // Meaning library for opcode 0xWXYZ / 0xWXNN / 0xWNNN:
-        // W, top nibble & instruction family byte
-        // X, first register address
-        // Y, second register address
-        // Z or N 4-bit or single byte value
-        // NN = YZ, an 8-bit value
-        // NNN = XYZ, 12-bit address
-        
-        // EXAMPLE
-        // mask with & to pull out nibble, and then use >> to slid down to ones place
-        // acts as a boolean operation that pulls out digit aligned with F
-        // let mut example = (0x7A15 & 0xF000);
-        //println!("{:#04X}", example);
-
-        // shift down 12 bits to get to 4 bits in hex (3 digits, 4 bits each, so 3 * 4 = 12)
-        // example = example >> 12;
-        // println!("{:#01X}", example);
-
-        // pull apart opcode into nibbles
-
-        let opcode_group = (opcode & 0xF000) >> 12; // instruction family
-        // NOTE: register VALUES are 1 byte, 8 bits, but registers are addressed with 4 bits, 1 hex digit
-        // Cast registers address x, y as usize to address register
-        let x = ((opcode & 0x0F00) >> 8) as usize; // usually first register address
-        let y = ((opcode & 0x00F0) >> 4) as usize; // usually second register address
-        let n = (opcode & 0x000F) as u8; // value that goes into 8-bit register, so u8
-        let nn = (opcode & 0x00FF) as u8; // value that goes into 8-bit register, so u8
-        let nnn = opcode & 0x0FFF; // 12-bit address
-
-        // Match each opcode to a specific instruction
-
-        match opcode_group {
-            // Add means add 0xNN to the register VA (register 10)
-            0x7 => {
-                println!("ADD: V{:X} += {:#04X}", x, nn)
-
-            }
-            // Jump means set pc to the address given by hex number 0xnnn
-            0x1 => {
-                println!("JUMP to {:#05X}", nnn)
-            }
-            _ => {
-                println!("Unknown opcode: {:#06X}", opcode);
-            }
+        Instruction {
+            opcode,
+            instruction_family: (opcode & 0xF000) >> 12,
+            x:     ((opcode & 0x0F00) >> 8) as usize,
+            y:     ((opcode & 0x00F0) >> 4) as usize,
+            n:     (opcode & 0x000F) as u8,
+            nn:    (opcode & 0x00FF) as u8,
+            nnn:   opcode & 0x0FFF,
         }
     }  
+
+    // pulls nibbles from decode via returned Instruction struct, and executes instructions
+    // takes in Instruction struct
+    pub fn execute(&mut self, instr: Instruction) {
+        match instr.instruction_family {
+            // Adds 8-bit value 0xNN to the register VA (register 10)
+            0x7 => {
+                println!("ADD: V{:X} += {:#04X}", instr.x, instr.nn);
+                // Overflow wrapping is a attribute of Chip8, need to override Rust errors to allow
+                self.v[instr.x] = self.v[instr.x].wrapping_add(instr.nn);
+                println!("ADD: V{:X} is now {:#04X}", instr.x, self.v[instr.x])
+            }
+
+            // Jump means set pc to the address given by hex number 0xnnn
+            0x1 => {
+                println!("JUMP to {:#05X}", instr.nnn);
+                self.pc = instr.nnn;
+                println!("Next instruction address in memory is now {:#05X}", self.pc);
+            }
+            
+            // If opcode not recognized, flag as an error
+            _ => {
+                println!("Unknown opcode: {:#06X}", instr.opcode);
+            }
+        }
+    }
+
+    // Cycles through fetch, decode, and execute
+    pub fn cycle(&mut self) {
+        // Pulls instruction from memory using the address set in program counter (pc)
+        // After fetch, increment pc + 2 to get to next instruction address
+        let opcode = self.fetch();
+        // Breaks up opcode into nibbles / bytes to execute instructions on, and stores in instr struct
+        let instr = self.decode(opcode);
+        // Executes instruction by matching opcode to function and changing memory
+        self.execute(instr);
+    }
 }
