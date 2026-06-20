@@ -1,0 +1,8 @@
+# Rust build output
+/chip8/target/
+
+# Backup files
+**/*.rs.bk
+
+# MSVC debug info
+*.pdb
