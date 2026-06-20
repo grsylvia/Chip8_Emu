@@ -5,11 +5,11 @@
 // Register VALUES are 1 byte, 8 bits, but registers are addressed with 4 bits, 1 hex digit
 // If function or variable called from main, set as public (pub) 
 
+// import opcode functions from opcodes.rs
 #[path = "opcodes.rs"]
 mod opcodes;
 
 // define data stored within struct Chip8
-
 pub struct Chip8 {
     // 4096 bytes of RAM, each cell is a byte
     pub memory: [u8; 4096],
@@ -154,6 +154,22 @@ impl Chip8 {
             nnn:   opcode & 0x0FFF,
         }
     }  
+
+    // pulls nibbles from decode via returned Instruction struct, and executes instructions
+    // takes in Instruction struct
+    pub fn execute(&mut self, instr: Instruction) {
+        match instr.instruction_family {
+            0x1 => self.op_jump(instr),
+            0x3 => self.op_skip_eq_nn(instr),
+            0x4 => self.op_skip_ne_nn(instr),
+            0x5 => self.op_skip_eq_reg(instr),
+            0x6 => self.op_set(instr),
+            0x7 => self.op_add(instr),
+            0x9 => self.op_skip_ne_reg(instr),
+            0xA => self.op_set_index(instr),
+            _ => println!("Unknown opcode: {:#06X}", instr.opcode),
+        }
+    }
 
     // Cycles through fetch, decode, and execute
     pub fn cycle(&mut self) {
