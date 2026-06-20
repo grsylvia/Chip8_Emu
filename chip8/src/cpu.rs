@@ -86,7 +86,6 @@ const FONT_SET: [u8; 80] = [
 // impl gives functionality to Chip8 struct, separating data and function
 
 impl Chip8 {
-
     // function that builds and returns Chip8 virtual machine 
     pub fn new() -> Self {
         let mut chip8 = Chip8 { // mutable, rust vars are read-only by default
@@ -116,7 +115,7 @@ impl Chip8 {
         chip8
     }
 
-    // Use %mut self to "borrow" (take ownership) of the machine and change it
+    // Use &mut self to "borrow" (take ownership) of the machine and change it
     // Don't bring in a copy of the machine, borrow it with &
     // In this case, we change the program counter
     // Fetch, read 2 byte opcode that pc points at, and move pc to next instruction
@@ -165,6 +164,18 @@ impl Chip8 {
             0x5 => self.op_skip_eq_reg(instr),
             0x6 => self.op_set(instr),
             0x7 => self.op_add(instr),
+            0x8 => match instr.n {
+                0x0 => self.op_set_reg(instr),
+                0x1 => self.op_or(instr),
+                0x2 => self.op_and(instr),
+                0x3 => self.op_xor(instr),
+                0x4 => {},
+                0x5 => {},
+                0x6 => {},
+                0x7 => {},
+                0xE => {},
+                _ => println!("Unknown opcode: {:#06X}", instr.opcode),
+            }
             0x9 => self.op_skip_ne_reg(instr),
             0xA => self.op_set_index(instr),
             _ => println!("Unknown opcode: {:#06X}", instr.opcode),
