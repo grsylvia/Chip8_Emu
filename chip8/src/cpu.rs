@@ -5,6 +5,10 @@
 // Register VALUES are 1 byte, 8 bits, but registers are addressed with 4 bits, 1 hex digit
 // If function or variable called from main, set as public (pub) 
 
+// Import access to filesystem and IO error types
+use std::fs;
+use std::io;
+
 // import opcode functions from opcodes.rs
 #[path = "opcodes.rs"]
 mod opcodes;
@@ -217,19 +221,22 @@ impl Chip8 {
         self.execute(instr);
     }
 
-    // Prints all registers to terminal, not using mut as no changes are made to registers
-    pub fn dump_registers(&self) {
-        println!("!====REGISTERS====!");
+    // Load a binary rom, and return an IO error on failure
+    pub fn load_rom(&mut self, path: &str) -> Result<(), io::Error> {
+        // reads the file, and ? returns early if failure
+        // rom is Vec<u8>, a growable array of bytes
+        let rom = fs::read(path)?;
 
-        // Print V0 to VF line by line
-        // Creates an array of tuples with (register, value)
-        for (register, value) in self.v.iter().enumerate() {
-            // Register values are 8-bit (u8), so use 2 hex digits
-            println!("V{:X}:{:#04X}", register, value);
+        // check to confirm that rom isn't larger than program space
+        if rom.len() > (0x1000 - 0x200) {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "ROM larger than avaliable program space in memory"));
         }
 
-        println!("!====PROGRAM COUNTER & STACK POINTER====!");
-        println!("Program Counter Address: {:#05X}", self.pc);
-        println!("Stack Pointer Address: {:#03X}", self.sp);
+        // writes rom into memory
+        for (offset, &byte) in rom.iter().enumerate() {
+            self.memory[0x200 + offset] = byte;
+        }
+        Ok(())
     }
+
 }
