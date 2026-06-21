@@ -211,6 +211,12 @@ impl Chip8 {
             }
             0x9 => self.op_skip_ne_reg(instr),
             0xA => self.op_set_index(instr),
+            0xB => self.op_jump_add_v0(instr),
+            0xE => match instr.n {
+                0xE => self.op_skip_keypress(instr),
+                0x1 => self.op_skip_nokeypress(instr),
+                _ => println!("Unknown opcode: {:#06X}", instr.opcode),
+            }
             _ => println!("Unknown opcode: {:#06X}", instr.opcode),
         }
     }

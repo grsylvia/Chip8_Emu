@@ -1,10 +1,16 @@
 use super::{Chip8, Instruction};
+use rand::RngExt;
 
 // pub(super) makes function public for parent module (cpu.rs)
 
 impl Chip8 {
 
     // 0x00E0
+    // Clears display by setting all boolean values in 64 * 32 display to false
+    pub(super) fn op_clear_display(&mut self) {
+        self.display = [false; 64 * 32];
+        self.debug_log(&format!("[00E0] CLS"));
+    }
 
     // 0x00EE
     // return from subroutine
@@ -240,24 +246,107 @@ impl Chip8 {
     }
 
     // 0xBNNN
+    // Set program counter to nnn plus value in register V0
+    pub(super) fn op_jump_add_v0(&mut self, instr: Instruction) {
+        self.pc += (instr.nnn) + (self.v[0x0] as u16);
+    }
 
     // 0xCXNN
+    // Generates a random number from 0 to 255, and ANDs that number with nn
+    pub(super) fn op_add_rand(&mut self, instr: Instruction) {
+        let mut rng = rand::rng();
+        // (0..=255) is an inclusive range
+        let random: u8 = rng.random_range(0..=255);
+        self.v[instr.x] = random & instr.nn;
+    }
 
     // 0xDXYN
+    // Reads n bytes from memory, starting at the index register i
+    // Display the bytes from memory as sprites on screen starting at (Vx, Vy)
+    pub(super) fn op_display_sprite(&mut self, instr: Instruction) {
+        let mut sprite: Vec<u8> = Vec::new();
+        for offset in 0..instr.n {
+            sprite.push(self.memory[(self.i + (offset as u16)) as usize]);
+        }
+
+        // Set initial x and y coordinates on display per Vx and Vy values
+        // Use mod 64, 32 to have x-coordinates wrap around display
+        let initial_x_coord = self.v[instr.x] % 64;
+        let initial_y_coord = self.v[instr.y] % 32;
+        // Set collision flag to zero
+        self.v[0xF] = 0x0;
+
+        // Sprite => sequence of bytes in memory
+        // Each byte, one horizontal row, 8 pixels wide
+        // Bit = 1 => pixel is on, msb is the leftmost pixel
+        
+        // iterate through each row (each byte represents one horizontal row)
+        for (row, &byte) in sprite.iter().enumerate() {
+            for col in 0..8 {
+                /*1101_0011  >> 7
+                = 0000_0001        (bit 7 shifted all the way down)
+                & 0000_0001
+                = 1  pixel ON */
+                /*1101_0011  >> 5
+                = 0000_0110        
+                & 0000_0001        (mask keeps only the lowest)
+                = 0  pixel OFF */
+                // slides bits down to check if bit is ON or OFF via AND mask 
+                let pixel_on = (byte >> (7 - col) & 1);
+
+                if pixel_on == 1 {
+                    let x_coord = (initial_x_coord as usize) + col;
+                    let y_coord = (initial_y_coord as usize) + row;
+                    // get the array index for the pixel in the display per current col and row 
+                    let display_index = (y_coord * 64) + x_coord;
+                    // write pixel to display
+                    self.display[display_index] = true;
+                }
+            }
+        }
+    }
 
     // 0xEX9E
+    // Increase program counter by 2 if the key # stored in Vx is pressed
+    pub(super) fn op_skip_keypress(&mut self, instr: Instruction) {
+        if self.keypad[self.v[instr.x] as usize] {
+            self.pc += 2;
+        }
+    }
 
     // 0xEXA1
+    // Increase program counter by 2 if the key # stored in Vx is not pressed
+    pub(super) fn op_skip_nokeypress(&mut self, instr: Instruction) {
+        if !self.keypad[self.v[instr.x] as usize] {
+            self.pc += 2;
+        }
+    }
 
     // 0xFX07
+    // Set the value of the delay timer into Vx
+    pub(super) fn op_save_dt(&mut self, instr: Instruction) {
+        self.v[instr.x] = self.delay_timer;
+    }
 
     // 0xFX0A
 
     // 0xFX15
+    // Set the value of Vx to the display timer
+    pub(super) fn op_load_dt(&mut self, instr: Instruction) {
+        self.delay_timer = self.v[instr.x];
+    }
 
     // 0xFX18
+    // Set the value of Vx to the sound timer
+    pub(super) fn op_load_st(&mut self, instr: Instruction) {
+        self.sound_timer = self.v[instr.x];
+    }
 
     // 0xFX1E
+    // Adds the values of index register and Vx, and then stores result in index register
+    pub(super) fn op_add_index(&mut self, instr: Instruction) {
+        self.i = self.i + (self.v[instr.x] as u16);
+    }
 
     // 0xFX29
 

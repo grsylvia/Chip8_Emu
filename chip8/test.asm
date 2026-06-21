@@ -2,3 +2,4 @@ LD V0, 0x0F
 LD V1, 0x01
 ADD V0, V1
 ADD V1, 0x1F
+CLS
