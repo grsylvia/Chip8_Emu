@@ -5,6 +5,11 @@
 // Register VALUES are 1 byte, 8 bits, but registers are addressed with 4 bits, 1 hex digit
 // If function or variable called from main, set as public (pub) 
 
+// Universal CPU loop:
+// 1) Fetch, read 2 byte opcode that pc points at, and move pc to next instruction
+// 2) Decode, pull opcode apart and determine function & registers it invokes
+// 3) Execute instruction
+
 // Import access to filesystem and IO error types
 use std::fs;
 use std::io;
