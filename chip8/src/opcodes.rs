@@ -9,7 +9,7 @@ impl Chip8 {
     // 0x00EE
 
     // 0x1NNN
-    // Jump means set pc to the address given by hex number 0xnnn
+    // Set program counter (pc) to the address given by hex number 0xnnn
     pub(super) fn op_jump(&mut self, instr: Instruction) {
         self.pc = instr.nnn;
         self.debug_log(&format!("[1NNN] JUMP -> pc = {:#05X}", self.pc));
@@ -78,6 +78,7 @@ impl Chip8 {
     }
 
     // 0x8XY0
+    // Sets value of register x to value of register y
     pub(super) fn op_set_reg(&mut self, instr: Instruction) {
         self.v[instr.x] = self.v[instr.y];
         self.debug_log(&format!(
@@ -117,14 +118,49 @@ impl Chip8 {
     }
 
     // 0x8XY4
+    pub(super) fn op_add_reg(&mut self, instr: Instruction) {
+        // checks if addition of two u8 values overflows, assigns 1 (TRUE) if overflow
+        let overflow = (self.v[instr.x] as u16) + (self.v[instr.y] as u16) > 0xFF;
+        // adds values in VX and VY, with wrapping
+        self.v[instr.x] = self.v[instr.x].wrapping_add(self.v[instr.y]);
+        // sets flag register to 1 if overflow
+        self.v[0xF] = overflow as u8;
+
+        self.debug_log(&format!(
+            "[8XY4] ADD V{:X} += V{:X} -> {:#04X} (VF={})",
+            instr.x, instr.y, self.v[instr.x], self.v[0xF]));
+    }
 
     // 0x8XY5
+    pub(super) fn op_sub_reg(&mut self, instr: Instruction) {
+        // checks if borrow is required (VX >= VY)
+        let no_borrow = self.v[instr.x] >= (self.v[instr.y]);
+        // subtracts values in VX and VY, wrapping backwards if borrow is required
+        self.v[instr.x] = self.v[instr.x].wrapping_sub(self.v[instr.y]);
+        // sets borrow register to 1 if no borrow
+        self.v[0xF] = no_borrow as u8;
+    }
 
     // 0x8XY6
+    pub(super) fn op_shift_right(&mut self, instr: Instruction) {
+        // pulls the least significant bit from the value in register x
+        let lsb = self.v[instr.x] & 1;
+        // if you shift a binary number to the right by 1 bit, it divides the number by two
+        // shift over by one and store the new values into register x
+        self.v[instr.x] = self.v[instr.x] >> 1;
+        // store the least significant bit (right-most bit) into flag register
+        self.v[0xF] = lsb;
+    }
 
     // 0x8XY7
+    pub(super) fn op_sub_reverse() {
+
+    }
 
     // 0x8XYE
+    pub(super) fn op_shift_left() {
+        
+    }
 
     // 0x9XY0
     // Skips next instruction if x register equals y register in opcode

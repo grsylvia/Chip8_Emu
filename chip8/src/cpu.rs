@@ -14,6 +14,7 @@ pub struct Chip8 {
     // 4096 bytes of RAM, each cell is a byte
     pub memory: [u8; 4096],
     // general registers, V0-VF
+    // last register VF is a status flag (flag register), that records side effects or results of operation
     v: [u8; 16],
     // index register, holds addresses to give first express for a memory range
     // used to point to first address in memory holding spirtes, fonts
@@ -185,9 +186,9 @@ impl Chip8 {
                 0x1 => self.op_or(instr),
                 0x2 => self.op_and(instr),
                 0x3 => self.op_xor(instr),
-                0x4 => {},
-                0x5 => {},
-                0x6 => {},
+                0x4 => self.op_add_reg(instr),
+                0x5 => self.op_sub_reg(instr),
+                0x6 => self.op_shift_right(instr),
                 0x7 => {},
                 0xE => {},
                 _ => println!("Unknown opcode: {:#06X}", instr.opcode),
@@ -217,7 +218,7 @@ impl Chip8 {
         // Creates an array of tuples with (register, value)
         for (register, value) in self.v.iter().enumerate() {
             // Register values are 8-bit (u8), so use 2 hex digits
-            println!("V{:X}:{:#03X}", register, value);
+            println!("V{:X}:{:#04X}", register, value);
         }
 
         println!("!====PROGRAM COUNTER & STACK POINTER====!");
