@@ -292,7 +292,7 @@ impl Chip8 {
                 & 0000_0001        (mask keeps only the lowest)
                 = 0  pixel OFF */
                 // slides bits down to check if bit is ON or OFF via AND mask 
-                let pixel_on = (byte >> (7 - col) & 1);
+                let pixel_on = byte >> (7 - col) & 1;
 
                 if pixel_on == 1 {
                     let x_coord = (initial_x_coord as usize) + col;
@@ -349,10 +349,36 @@ impl Chip8 {
     }
 
     // 0xFX29
+    pub(super) fn op_digit_location(&mut self, instr: Instruction) {
+        let digit = self.v[instr.x];
+        let font_offset = (digit * 0x5) as u16;
+        let font_base_address = 0x50;
+        self.i = font_base_address + font_offset;
+    }
 
     // 0xFX33
+    pub(super) fn op_break_decimal(&mut self, instr: Instruction) {
+        let decimal = self.v[instr.x];
+        let ones_place = decimal % 10;
+        let tens_place = (decimal / 10) % 10;
+        let hundreds_place = (decimal / 10) / 10;
 
+        self.memory[(self.i) as usize] = hundreds_place;
+        self.memory[(self.i + 1) as usize] = tens_place;
+        self.memory[(self.i + 2) as usize] = ones_place;
+    }
+    
     // 0xFX55
+    pub(super) fn op_save_mem(&mut self, instr: Instruction) {
+        for reg in 0..=(instr.x) {
+            self.memory[(self.i as usize) + reg] = self.v[reg];
+        }
+    }
 
     // 0xFX65
+    pub(super) fn op_load_mem(&mut self, instr: Instruction) {
+        for reg in 0..=(instr.x) {
+            self.v[reg] = self.memory[(self.i as usize) + reg];
+        }
+    }
 }
