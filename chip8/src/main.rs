@@ -12,7 +12,7 @@ use cpu::Chip8;
 fn main() {
     // calls function associated with type Chip8, so calls a constructor
     let mut chip8 = Chip8::new();
-    chip8.load_rom("test.ch8").expect("failed to load ROM");
+    chip8.load_rom("out.ch8").expect("failed to load ROM");
 
     for _ in 0..3 {
         chip8.cycle();
