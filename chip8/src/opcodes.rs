@@ -7,6 +7,14 @@ impl Chip8 {
     // 0x00E0
 
     // 0x00EE
+    // return from subroutine
+    pub(super) fn op_return(&mut self) {
+        // go back to the top of stack for the latest return address stored
+        self.sp -= 1;
+        // set program counter to latest return address stored
+        self.pc = self.stack[self.sp as usize];
+        // next fetch resumes at the instruction following the original call
+    }
 
     // 0x1NNN
     // Set program counter (pc) to the address given by hex number 0xnnn
@@ -16,6 +24,22 @@ impl Chip8 {
     }
 
     // 0x2NNN
+    // Subroutines are reusable blocks of code you can call
+    // To call a subroutine, you must jump to the address of its first instruction
+    // ALSO, you must record the address to jump back to after the subroutine is finished
+    // Subroutines can call other subroutines, so you can have nested return addresses to remember
+    // Finish C -> Back to return address in B -> Finish B -> Back to return address in A
+    // Stacks are Last In, First Out (LIFO), you push a return address on top, and pop the top one off
+    // Stack pointer (sp) holds the address of next free slot in the stack
+    // op_call calls a subroutine by storing the return address (pc, next instruction in memory)
+    pub(super) fn op_call(&mut self, instr: Instruction) {
+        // store return address before jumping to subroutine
+        self.stack[self.sp as usize] = self.pc;
+        // increment sp to update to next free slot in stack
+        self.sp += 1;
+        // jump to subroutine
+        self.pc = instr.nnn;
+    }
 
     // 0x3XNN
     // Skips next instruction if register value equals nn value
@@ -118,6 +142,7 @@ impl Chip8 {
     }
 
     // 0x8XY4
+    // Adds value of register y to register x, sets flag register to 1 if the addition overflows
     pub(super) fn op_add_reg(&mut self, instr: Instruction) {
         // checks if addition of two u8 values overflows, assigns 1 (TRUE) if overflow
         let overflow = (self.v[instr.x] as u16) + (self.v[instr.y] as u16) > 0xFF;
@@ -132,6 +157,7 @@ impl Chip8 {
     }
 
     // 0x8XY5
+    // Subtracts value of register y from register x, sets flag register to 1 if there is no borrow
     pub(super) fn op_sub_reg(&mut self, instr: Instruction) {
         // checks if borrow is required (VX >= VY)
         let no_borrow = self.v[instr.x] >= (self.v[instr.y]);
@@ -139,27 +165,57 @@ impl Chip8 {
         self.v[instr.x] = self.v[instr.x].wrapping_sub(self.v[instr.y]);
         // sets borrow register to 1 if no borrow
         self.v[0xF] = no_borrow as u8;
+
+        self.debug_log(&format!(
+            "[8XY5] SUB V{:X} -= V{:X} -> {:#04X} (VF={})",
+            instr.x, instr.y, self.v[instr.x], self.v[0xF]));
     }
 
     // 0x8XY6
+    // Shifts value of register x right by 1 (divides by two), stores the lost least significant bit in the flag register
     pub(super) fn op_shift_right(&mut self, instr: Instruction) {
         // pulls the least significant bit from the value in register x
         let lsb = self.v[instr.x] & 1;
         // if you shift a binary number to the right by 1 bit, it divides the number by two
-        // shift over by one and store the new values into register x
+        // shift over right by one and store the new values into register x
         self.v[instr.x] = self.v[instr.x] >> 1;
         // store the least significant bit (right-most bit) into flag register
         self.v[0xF] = lsb;
+
+        self.debug_log(&format!(
+            "[8XY6] SHR V{:X} >> 1 -> {:#04X} (VF={})",
+            instr.x, self.v[instr.x], self.v[0xF]));
     }
 
     // 0x8XY7
-    pub(super) fn op_sub_reverse() {
+    // Subtracts value of register x from register y and stores the result in register x, sets flag register to 1 if there is no borrow
+    pub(super) fn op_sub_reverse(&mut self, instr: Instruction) {
+        // checks if no borrow is required (VY >= VX)
+        let no_borrow = self.v[instr.y] >= (self.v[instr.x]);
+        // subtracts values in VY and VX, wrapping backwards if borrow is required
+        self.v[instr.x] = self.v[instr.y].wrapping_sub(self.v[instr.x]);
+        // sets borrow register to 1 if no borrow
+        self.v[0xF] = no_borrow as u8;
 
+        self.debug_log(&format!(
+            "[8XY7] SUBN V{:X} = V{:X} - V{:X} -> {:#04X} (VF={})",
+            instr.x, instr.y, instr.x, self.v[instr.x], self.v[0xF]));
     }
 
     // 0x8XYE
-    pub(super) fn op_shift_left() {
-        
+    // Shifts value of register x left by 1 (multiplies by two), stores the lost most significant bit in the flag register
+    pub(super) fn op_shift_left(&mut self, instr: Instruction) {
+        // shifts register value (type u8) down 7 bits to the right, pulling the msb
+        let msb = self.v[instr.x] >> 7;
+        // if you shift a binary number to the left by 1 bit, it multiples the number by two
+        // shift over left by one and store the new values into register x
+        self.v[instr.x] = self.v[instr.x] << 1;
+        // store the most significant bit (left-most bit) into flag register
+        self.v[0xF] = msb;
+
+        self.debug_log(&format!(
+            "[8XYE] SHL V{:X} << 1 -> {:#04X} (VF={})",
+            instr.x, self.v[instr.x], self.v[0xF]));
     }
 
     // 0x9XY0

@@ -11,21 +11,21 @@ mod opcodes;
 
 // define data stored within struct Chip8
 pub struct Chip8 {
-    // 4096 bytes of RAM, each cell is a byte
     pub memory: [u8; 4096],
+    // 4096 bytes of RAM, each cell is a byte
+    v: [u8; 16],
     // general registers, V0-VF
     // last register VF is a status flag (flag register), that records side effects or results of operation
-    v: [u8; 16],
+    i: u16,
     // index register, holds addresses to give first express for a memory range
     // used to point to first address in memory holding spirtes, fonts
-    // points at first address where data will be saved or loaded from registers 
-    i: u16, 
-    // program counter, address of next instruction in memory
+    // points at first address where data will be saved or loaded from registers
     pc: u16,
-    // stack, saves return addresses
-    stack: [u16; 16], 
-    // stack pointer
+    // program counter, address of next instruction in memory
+    stack: [u16; 16],
+    // stack for storing return addresses, can handle 16 nested subroutines
     sp: u8,
+    // stack pointer
     delay_timer: u8,
     sound_timer: u8,
     // 64 * 32 screen, each pixel on or off
@@ -175,7 +175,14 @@ impl Chip8 {
     // takes in Instruction struct
     pub fn execute(&mut self, instr: Instruction) {
         match instr.instruction_family {
+            0x0 => match instr.nn {
+                0xEE => self.op_return(),
+                0xE0 => {},
+                _ => println!("Unknown opcode: {:#06X}", instr.opcode),
+
+            }
             0x1 => self.op_jump(instr),
+            0x2 => self.op_call(instr),
             0x3 => self.op_skip_eq_nn(instr),
             0x4 => self.op_skip_ne_nn(instr),
             0x5 => self.op_skip_eq_reg(instr),
@@ -189,8 +196,8 @@ impl Chip8 {
                 0x4 => self.op_add_reg(instr),
                 0x5 => self.op_sub_reg(instr),
                 0x6 => self.op_shift_right(instr),
-                0x7 => {},
-                0xE => {},
+                0x7 => self.op_sub_reverse(instr),
+                0xE => self.op_shift_left(instr),
                 _ => println!("Unknown opcode: {:#06X}", instr.opcode),
             }
             0x9 => self.op_skip_ne_reg(instr),
