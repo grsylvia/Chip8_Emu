@@ -20,6 +20,7 @@ impl Chip8 {
         // set program counter to latest return address stored
         self.pc = self.stack[self.sp as usize];
         // next fetch resumes at the instruction following the original call
+        self.debug_log(&format!("[00EE] RET -> pc = {:#05X} (sp={})", self.pc, self.sp));
     }
 
     // 0x1NNN
@@ -45,6 +46,7 @@ impl Chip8 {
         self.sp += 1;
         // jump to subroutine
         self.pc = instr.nnn;
+        self.debug_log(&format!("[2NNN] CALL {:#05X} (sp={})", self.pc, self.sp));
     }
 
     // 0x3XNN
@@ -248,7 +250,11 @@ impl Chip8 {
     // 0xBNNN
     // Set program counter to nnn plus value in register V0
     pub(super) fn op_jump_add_v0(&mut self, instr: Instruction) {
-        self.pc += (instr.nnn) + (self.v[0x0] as u16);
+        self.pc = (instr.nnn) + (self.v[0x0] as u16);
+        self.debug_log(&format!(
+            "[BNNN] JUMP {:#05X} + V0({:#04X}) -> pc = {:#05X}",
+            instr.nnn, self.v[0x0], self.pc
+        ));
     }
 
     // 0xCXNN
@@ -258,6 +264,10 @@ impl Chip8 {
         // (0..=255) is an inclusive range
         let random: u8 = rng.random_range(0..=255);
         self.v[instr.x] = random & instr.nn;
+        self.debug_log(&format!(
+            "[CXNN] RND V{:X} = rand & {:#04X} -> {:#04X}",
+            instr.x, instr.nn, self.v[instr.x]
+        ));
     }
 
     // 0xDXYN
@@ -304,59 +314,120 @@ impl Chip8 {
                 }
             }
         }
+        self.debug_log(&format!(
+            "[DXYN] DRAW {} rows at (V{:X}={}, V{:X}={}) from I={:#05X}",
+            instr.n, instr.x, self.v[instr.x], instr.y, self.v[instr.y], self.i
+        ));
     }
 
     // 0xEX9E
     // Increase program counter by 2 if the key # stored in Vx is pressed
     pub(super) fn op_skip_keypress(&mut self, instr: Instruction) {
-        if self.keypad[self.v[instr.x] as usize] {
+        let skip = self.keypad[self.v[instr.x] as usize];
+        if skip {
             self.pc += 2;
         }
+        self.debug_log(&format!(
+            "[EX9E] SKIP if key V{:X}({:#03X}) pressed? {}",
+            instr.x, self.v[instr.x], skip
+        ));
     }
 
     // 0xEXA1
     // Increase program counter by 2 if the key # stored in Vx is not pressed
     pub(super) fn op_skip_nokeypress(&mut self, instr: Instruction) {
-        if !self.keypad[self.v[instr.x] as usize] {
+        let skip = !self.keypad[self.v[instr.x] as usize];
+        if skip {
             self.pc += 2;
         }
+        self.debug_log(&format!(
+            "[EXA1] SKIP if key V{:X}({:#03X}) NOT pressed? {}",
+            instr.x, self.v[instr.x], skip
+        ));
     }
 
     // 0xFX07
     // Set the value of the delay timer into Vx
     pub(super) fn op_save_dt(&mut self, instr: Instruction) {
         self.v[instr.x] = self.delay_timer;
+        self.debug_log(&format!(
+            "[FX07] LD V{:X} = delay_timer ({:#04X})",
+            instr.x, self.delay_timer
+        ));
     }
 
     // 0xFX0A
+    // Waits until any key is pressed, then stores that key's number into Vx
+    // If no key is down, rewind pc by 2 so the next cycle re-runs this same instruction
+    pub(super) fn op_wait_key(&mut self, instr: Instruction) {
+        let mut key_pressed = false;
+        // scan all 16 keys for the first one being held down
+        for keypad_idx in 0..16 {
+            if self.keypad[keypad_idx] {
+                // store the key number into Vx and stop looking
+                self.v[instr.x] = keypad_idx as u8;
+                key_pressed = true;
+                break;
+            }
+        }
+        // no key yet -> step pc back so we land on this instruction again next cycle
+        if !key_pressed {
+            self.pc -= 2;
+        }
+        self.debug_log(&format!(
+            "[FX0A] WAIT key -> V{:X} (got key? {})",
+            instr.x, key_pressed
+        ));
+    }
 
     // 0xFX15
-    // Set the value of Vx to the display timer
+    // Set the delay timer to the value held in Vx
     pub(super) fn op_load_dt(&mut self, instr: Instruction) {
         self.delay_timer = self.v[instr.x];
+        self.debug_log(&format!(
+            "[FX15] LD delay_timer = V{:X} ({:#04X})",
+            instr.x, self.v[instr.x]
+        ));
     }
 
     // 0xFX18
-    // Set the value of Vx to the sound timer
+    // Set the sound timer to the value held in Vx
     pub(super) fn op_load_st(&mut self, instr: Instruction) {
         self.sound_timer = self.v[instr.x];
+        self.debug_log(&format!(
+            "[FX18] LD sound_timer = V{:X} ({:#04X})",
+            instr.x, self.v[instr.x]
+        ));
     }
 
     // 0xFX1E
     // Adds the values of index register and Vx, and then stores result in index register
     pub(super) fn op_add_index(&mut self, instr: Instruction) {
         self.i = self.i + (self.v[instr.x] as u16);
+        self.debug_log(&format!(
+            "[FX1E] ADD I += V{:X}({:#04X}) -> I = {:#05X}",
+            instr.x, self.v[instr.x], self.i
+        ));
     }
 
     // 0xFX29
+    // Points I at the font sprite for the hex digit (0x0-0xF) held in Vx
+    // Font set lives in memory at 0x50, and each character sprite is 5 bytes tall
+    // So the address is base (0x50) + digit * 5
     pub(super) fn op_digit_location(&mut self, instr: Instruction) {
         let digit = self.v[instr.x];
         let font_offset = (digit * 0x5) as u16;
         let font_base_address = 0x50;
         self.i = font_base_address + font_offset;
+        self.debug_log(&format!(
+            "[FX29] LD I = font(V{:X}={:#03X}) -> I = {:#05X}",
+            instr.x, digit, self.i
+        ));
     }
 
     // 0xFX33
+    // Split the value in Vx into its three decimal digits
+    // Store hundreds at memory[I], tens at memory[I+1], ones at memory[I+2]
     pub(super) fn op_break_decimal(&mut self, instr: Instruction) {
         let decimal = self.v[instr.x];
         let ones_place = decimal % 10;
@@ -366,19 +437,34 @@ impl Chip8 {
         self.memory[(self.i) as usize] = hundreds_place;
         self.memory[(self.i + 1) as usize] = tens_place;
         self.memory[(self.i + 2) as usize] = ones_place;
+
+        self.debug_log(&format!(
+            "[FX33] BCD V{:X}({}) -> [{} {} {}] at I={:#05X}",
+            instr.x, decimal, hundreds_place, tens_place, ones_place, self.i
+        ));
     }
     
     // 0xFX55
+    // Store registers V0 through Vx (inclusive) into memory starting at address I
     pub(super) fn op_save_mem(&mut self, instr: Instruction) {
         for reg in 0..=(instr.x) {
             self.memory[(self.i as usize) + reg] = self.v[reg];
         }
+        self.debug_log(&format!(
+            "[FX55] STORE V0..=V{:X} into memory at I={:#05X}",
+            instr.x, self.i
+        ));
     }
 
     // 0xFX65
+    // Load registers V0 through Vx (inclusive) from memory starting at address I
     pub(super) fn op_load_mem(&mut self, instr: Instruction) {
         for reg in 0..=(instr.x) {
             self.v[reg] = self.memory[(self.i as usize) + reg];
         }
+        self.debug_log(&format!(
+            "[FX65] LOAD V0..=V{:X} from memory at I={:#05X}",
+            instr.x, self.i
+        ));
     }
 }

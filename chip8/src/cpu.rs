@@ -186,7 +186,7 @@ impl Chip8 {
         match instr.instruction_family {
             0x0 => match instr.nn {
                 0xEE => self.op_return(),
-                0xE0 => {},
+                0xE0 => self.op_clear_display(),
                 _ => println!("Unknown opcode: {:#06X}", instr.opcode),
 
             }
@@ -212,10 +212,23 @@ impl Chip8 {
             0x9 => self.op_skip_ne_reg(instr),
             0xA => self.op_set_index(instr),
             0xB => self.op_jump_add_v0(instr),
+            0xC => self.op_add_rand(instr),
             0xD => self.op_display_sprite(instr),
             0xE => match instr.n {
                 0xE => self.op_skip_keypress(instr),
                 0x1 => self.op_skip_nokeypress(instr),
+                _ => println!("Unknown opcode: {:#06X}", instr.opcode),
+            }
+            0xF => match instr.nn {
+                0x07 => self.op_save_dt(instr),
+                0x0A => self.op_wait_key(instr),
+                0x15 => self.op_load_dt(instr),
+                0x18 => self.op_load_st(instr),
+                0x1E => self.op_add_index(instr),
+                0x29 => self.op_digit_location(instr),
+                0x33 => self.op_break_decimal(instr),
+                0x55 => self.op_save_mem(instr),
+                0x65 => self.op_load_mem(instr),
                 _ => println!("Unknown opcode: {:#06X}", instr.opcode),
             }
             _ => println!("Unknown opcode: {:#06X}", instr.opcode),
