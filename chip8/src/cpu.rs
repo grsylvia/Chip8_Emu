@@ -264,4 +264,26 @@ impl Chip8 {
         Ok(())
     }
 
+    pub fn draw_display(&self) {
+        // set up the display as a single string that is printed once
+        // alternative to printing line by line, which could cause flicker
+        let mut frame = String::new();
+
+        // for each row on display
+        for y in 0..32 {
+            // for each pixel in the display row
+            for x in 0..64 {
+                // if display in memory is true, then append a full block to the frame string to be printed
+                let pixel = self.display[(y * 64) + x];
+                if pixel {
+                    frame.push_str("██");
+                } else {
+                    frame.push_str("  ");
+                }
+            }
+            // at end of display row, add a newline to the string to begin the new row
+            frame.push_str("\n");
+        }
+        println!("{frame}");
+    }
 }

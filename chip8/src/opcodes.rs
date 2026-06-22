@@ -250,7 +250,7 @@ impl Chip8 {
     // 0xBNNN
     // Set program counter to nnn plus value in register V0
     pub(super) fn op_jump_add_v0(&mut self, instr: Instruction) {
-        self.pc = (instr.nnn) + (self.v[0x0] as u16);
+        self.pc += (instr.nnn) + (self.v[0x0] as u16);
         self.debug_log(&format!(
             "[BNNN] JUMP {:#05X} + V0({:#04X}) -> pc = {:#05X}",
             instr.nnn, self.v[0x0], self.pc
