@@ -19,14 +19,22 @@ use std::time::{Duration, Instant};
 fn main() {
     // calls function associated with type Chip8, so calls a constructor
     let mut chip8 = Chip8::new();
+    chip8.set_debug(false);
     chip8.load_rom("test_roms/1-chip8-logo.ch8").expect("failed to load ROM");
 
+    // clear the terminal ONCE before the loop starts
+    // \x1b[2J wipes the whole screen, \x1b[H homes the cursor to row 1, col 1
+    // this gives a clean slate so the first frame doesn't draw over old terminal text
+    // do NOT clear every frame, that causes flicker, per-frame homing in draw_display is enough
+    print!("\x1b[2J\x1b[H");
+
+    let time_interval = Duration::from_secs_f64(1.0 / FRAMES_PER_SECOND as f64);
+
     loop {
-        let time_interval = Duration::from_secs_f64(1.0 / FRAMES_PER_SECOND as f64);
         // doesn't need mut, it's reassigned every frame
         let next_tick = Instant::now() + time_interval;
 
-        for cycle_count in 0..CYCLES_PER_FRAME {
+        for _ in 0..CYCLES_PER_FRAME {
             chip8.cycle();
         }
 

@@ -274,7 +274,9 @@ impl Chip8 {
     // Reads n bytes from memory, starting at the index register i
     // Display the bytes from memory as sprites on screen starting at (Vx, Vy)
     pub(super) fn op_display_sprite(&mut self, instr: Instruction) {
+        // define sprite as a vector of bytes, each byte representing a 8-pixel wide horizontal row
         let mut sprite: Vec<u8> = Vec::new();
+        // read n bytes from memory, starting at index register i
         for offset in 0..instr.n {
             sprite.push(self.memory[(self.i + (offset as u16)) as usize]);
         }
@@ -293,6 +295,9 @@ impl Chip8 {
         // iterate through each row (each byte represents one horizontal row)
         for (row, &byte) in sprite.iter().enumerate() {
             for col in 0..8 {
+                let x_coord = (initial_x_coord as usize) + col;
+                let y_coord = (initial_y_coord as usize) + row;
+                
                 /*1101_0011  >> 7
                 = 0000_0001        (bit 7 shifted all the way down)
                 & 0000_0001
@@ -305,12 +310,20 @@ impl Chip8 {
                 let pixel_on = byte >> (7 - col) & 1;
 
                 if pixel_on == 1 {
-                    let x_coord = (initial_x_coord as usize) + col;
-                    let y_coord = (initial_y_coord as usize) + row;
+                    // if the x coord or y coord is out of bounds, skip writing to display to avoid error
+                    if x_coord >= 64 || y_coord >= 32 {
+                        continue;
+                    }
                     // get the array index for the pixel in the display per current col and row 
                     let display_index = (y_coord * 64) + x_coord;
-                    // write pixel to display
-                    self.display[display_index] = true;
+                    // if pixel is already on, set VF collision flag
+                    if self.display[display_index] {
+                        self.v[0xF] = 1;
+                    }
+                    // write pixel to display via XOR
+                    // to move / remove sprite, you can write the same sprite to the same location
+                    // 1 XOR 1 = 0, so sprite written to same location will be removed
+                    self.display[display_index] = self.display[display_index] ^ (pixel_on != 0);
                 }
             }
         }

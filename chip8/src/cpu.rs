@@ -20,7 +20,7 @@ mod opcodes;
 
 // define data stored within struct Chip8
 pub struct Chip8 {
-    pub memory: [u8; 4096],
+    memory: [u8; 4096],
     // 4096 bytes of RAM, each cell is a byte
     v: [u8; 16],
     // general registers, V0-VF
@@ -268,6 +268,11 @@ impl Chip8 {
         // set up the display as a single string that is printed once
         // alternative to printing line by line, which could cause flicker
         let mut frame = String::new();
+        // start the frame with the ANSI "cursor home" code \x1b[H
+        // \x1b is the ESC byte, [H sends the cursor back to row 1, col 1
+        // this makes each new frame overwrite the old one in place
+        // instead of printing below it and scrolling the terminal forever
+        frame.push_str("\x1b[H");
 
         // for each row on display
         for y in 0..32 {
